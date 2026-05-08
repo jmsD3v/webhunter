@@ -24,7 +24,7 @@ app = typer.Typer(
 console = Console()
 
 _FOOTER = (
-    "Copyright © 2025 Desarrollado desde Las Breñas con 💜 por @jmsDev All rights reserved"
+    "Copyright (c) 2025 Desarrollado desde Las Brenas con amor por @jmsDev All rights reserved"
 )
 
 

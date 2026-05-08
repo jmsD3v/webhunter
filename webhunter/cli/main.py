@@ -78,15 +78,18 @@ def scan(
     console.print(f"  AI      : {'disabled' if no_ai else 'enabled (Gemini)'}")
     console.print(f"  Checkers: {len(CHECKERS)} loaded\n")
 
-    if report:
-        console.print("[yellow]--report is not yet implemented (Phase 3).[/yellow]")
-
     result = asyncio.run(run_scan(target, use_ai=not no_ai))
 
     print_summary(result)
 
     if output:
         save_output(result, output)
+
+    if report:
+        from webhunter.report.generator import generate_report
+        fmt = "html" if str(report).endswith(".html") else "pdf"
+        out_path = asyncio.run(generate_report(result, Path(report), fmt=fmt))
+        console.print(f"\n[green]Report saved -> {out_path}[/green]")
 
     has_critical_or_high = result.critical_count > 0 or result.high_count > 0
     raise typer.Exit(1 if has_critical_or_high else 0)

@@ -19,8 +19,11 @@ from webhunter.checkers.access_control import AccessControlChecker
 from webhunter.checkers.auth_failures import AuthFailuresChecker
 from webhunter.checkers.crypto import CryptoChecker
 from webhunter.checkers.injection import InjectionChecker
+from webhunter.checkers.insecure_design import InsecureDesignChecker
+from webhunter.checkers.integrity_failures import IntegrityFailuresChecker
 from webhunter.checkers.logging_failures import LoggingFailuresChecker
 from webhunter.checkers.misconfiguration import MisconfigChecker
+from webhunter.checkers.ssrf import SSRFChecker
 from webhunter.checkers.vulnerable_components import VulnComponentsChecker
 
 CHECKERS: list[BaseChecker] = [
@@ -28,8 +31,11 @@ CHECKERS: list[BaseChecker] = [
     AuthFailuresChecker(),
     CryptoChecker(),
     InjectionChecker(),
+    InsecureDesignChecker(),
+    IntegrityFailuresChecker(),
     LoggingFailuresChecker(),
     MisconfigChecker(),
+    SSRFChecker(),
     VulnComponentsChecker(),
 ]
 

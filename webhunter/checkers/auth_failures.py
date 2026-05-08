@@ -234,7 +234,7 @@ class AuthFailuresChecker(BaseChecker):
                         ),
                         severity=Severity.HIGH,
                         evidence=(
-                            f"POST {path} with {username}:{password} → "
+                            f"POST {path} with {username}:{password} -> "
                             f"HTTP {resp.status_code}, "
                             f"response size {len(resp.content)} bytes "
                             f"(baseline {baseline_size} bytes)"

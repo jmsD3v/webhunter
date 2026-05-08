@@ -19,7 +19,7 @@ _APIKEY_PATTERN = re.compile(
 class CryptoChecker(BaseChecker):
     name = "crypto"
     category = VulnCategory.A02_CRYPTO
-    description = "TLS/SSL config, HTTP→HTTPS redirect, insecure cookies"
+    description = "TLS/SSL config, HTTP->HTTPS redirect, insecure cookies"
 
     async def run(self, target: TargetURL, result: ScanResult) -> None:
         async with httpx.AsyncClient(

@@ -1,0 +1,66 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "webhunter"
+version = "0.1.0"
+description = "OWASP Top 10 web vulnerability scanner for authorized pentesting"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "Juanma (Juan Manuel Silva)", email = "juanmanuelsilva06@gmail.com" }
+]
+keywords = ["security", "pentesting", "owasp", "vulnerability", "scanner"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Information Technology",
+    "Topic :: Security",
+    "Programming Language :: Python :: 3.11",
+]
+dependencies = [
+    "typer>=0.12.0",
+    "rich>=13.7.0",
+    "httpx>=0.27.0",
+    "pydantic>=2.7.0",
+    "python-dotenv>=1.0.0",
+    "beautifulsoup4>=4.12.0",
+    "google-generativeai>=0.8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-httpx>=0.30.0",
+    "mypy>=1.10.0",
+    "ruff>=0.4.0",
+]
+
+[project.scripts]
+webhunter = "webhunter.cli.main:app"
+
+[project.urls]
+Homepage = "https://github.com/jmsDev/webhunter"
+Repository = "https://github.com/jmsDev/webhunter"
+
+[tool.hatch.build.targets.wheel]
+packages = ["webhunter"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

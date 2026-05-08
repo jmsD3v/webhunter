@@ -15,11 +15,23 @@ from webhunter.types.findings import ScanResult, Severity
 
 console = Console()
 
-# Register checkers here as they are implemented
-# Example (Phase 2):
-#   from webhunter.checkers.headers import SecurityHeadersChecker
-#   CHECKERS: list[BaseChecker] = [SecurityHeadersChecker(), ...]
-CHECKERS: list[BaseChecker] = []
+from webhunter.checkers.access_control import AccessControlChecker
+from webhunter.checkers.auth_failures import AuthFailuresChecker
+from webhunter.checkers.crypto import CryptoChecker
+from webhunter.checkers.injection import InjectionChecker
+from webhunter.checkers.logging_failures import LoggingFailuresChecker
+from webhunter.checkers.misconfiguration import MisconfigChecker
+from webhunter.checkers.vulnerable_components import VulnComponentsChecker
+
+CHECKERS: list[BaseChecker] = [
+    AccessControlChecker(),
+    AuthFailuresChecker(),
+    CryptoChecker(),
+    InjectionChecker(),
+    LoggingFailuresChecker(),
+    MisconfigChecker(),
+    VulnComponentsChecker(),
+]
 
 
 async def _analyze_with_gemini(result: ScanResult) -> str | None:

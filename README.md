@@ -1,199 +1,146 @@
-# 🕷️ WebHunter — OWASP Top 10 AI Scanner
+# WebHunter
 
-<div align="center">
+Scanner de vulnerabilidades web basado en OWASP Top 10, con sugerencias de explotación asistidas por IA — proyecto **P-02** del portfolio de ciberseguridad de [@jmsDev](https://www.linkedin.com/in/jmsilva83).
 
-![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![OWASP](https://img.shields.io/badge/OWASP-Top_10-000000?style=for-the-badge&logo=owasp&logoColor=white)
-![Gemini](https://img.shields.io/badge/Gemini_AI-Free_Tier-4285F4?style=for-the-badge&logo=google&logoColor=white)
-![Portfolio](https://img.shields.io/badge/Portfolio-P--02_Offensive-critical?style=for-the-badge)
+## Qué hace
 
-**Automated web vulnerability scanner covering all OWASP Top 10 categories with AI-powered exploit suggestions**
+WebHunter lanza 10 checkers asíncronos contra una URL objetivo — uno por cada categoría del OWASP Top 10 2021 (A01 a A10) — haciendo peticiones HTTP reales con `httpx` contra el target, no análisis estático de código. Cada checker agrega sus hallazgos (`Vulnerability`) a un resultado común con severidad (CRITICAL/HIGH/MEDIUM/LOW/INFO), evidencia y remediación sugerida. Si se define `GEMINI_API_KEY`, el resultado del escaneo se envía a Google Gemini (`gemini-1.5-flash`) para generar una evaluación de riesgo en texto libre; sin la key, el escaneo corre igual y esa sección simplemente se omite. Antes de escanear, valida que el target esté en scope autorizado (HTB, THM, rangos RFC1918, `*.htb/.thm/.local`, localhost) y corta con un error claro si no lo está, salvo que se use `--force-scope`.
 
-*P-02 of 9 · Cybersecurity Portfolio by [@jmsDev](https://www.linkedin.com/in/jmsilva83)*
+## Características
 
-</div>
+- **Cobertura real de las 10 categorías OWASP Top 10 2021**, un checker por categoría (ver tabla abajo) — no son todos igual de profundos: varios (headers, endpoints de debug, SSRF, SQLi/XSS básico) hacen pruebas activas concretas; otros son más livianos (fingerprint de versión, detección pasiva de superficie de ataque).
+- **Checkers 100% asíncronos** (`asyncio.gather`) sobre `httpx.AsyncClient` — corren en paralelo contra el mismo target.
+- **Tolerante a fallos**: si un checker se cae (timeout, conexión rechazada, excepción), el orquestador lo captura y lo reporta como finding INFO en vez de tirar abajo todo el scan.
+- **Scope gate obligatorio** (`webhunter/core/target.py`): por defecto solo permite escanear rangos de laboratorio (HTB, THM, RFC1918, `.htb/.thm/.local`, localhost) o hosts agregados manualmente vía `AUTHORIZED_SCOPE`. `--force-scope` lo saltea, con advertencia en pantalla.
+- **Análisis con IA opcional** vía Gemini — no bloquea el escaneo si falta la API key.
+- **Salida a JSON** (`--output`) para integrarlo en otras herramientas o pipelines.
+- **Exit code útil**: devuelve `1` si hubo hallazgos CRITICAL o HIGH, pensado para CI/CD.
 
----
+### Cobertura OWASP Top 10 (checkers reales, verificado en código)
 
-## What it does
-
-WebHunter runs a full OWASP Top 10 assessment against a target web application — injection testing, authentication probing, misconfiguration detection, XSS fuzzing, SSRF probing — then feeds results to **Google Gemini** for exploitation narrative and remediation guidance.
-
-```bash
-webhunter scan http://10.10.11.21
-```
-
----
-
-## Features
-
-- **Full OWASP Top 10 coverage** — A01 through A10, active probing
-- **Injection testing** — SQLi (error-based, boolean, time-based), command injection, SSTI
-- **XSS fuzzing** — reflected, stored, DOM-based pattern detection
-- **Authentication analysis** — default creds, JWT weaknesses, session fixation
-- **Misconfiguration detection** — exposed admin panels, directory listing, debug endpoints
-- **SSRF probing** — internal interaction detection via URL parameters
-- **Component fingerprinting** — server/framework versions matched against known CVEs
-- **AI-powered analysis** — Gemini generates PoC context, CVSS rationale, and remediation steps
-- **Dark-theme HTML report** — professional report with CVSS-style severity cards
-
----
-
-## OWASP Top 10 Coverage
-
-| ID | Category | Active Checks |
+| Categoría | Checker | Qué prueba |
 |---|---|---|
-| **A01** | Broken Access Control | IDOR testing, forced browsing, horizontal/vertical privilege escalation |
-| **A02** | Cryptographic Failures | HTTP redirect, weak TLS detection, cleartext sensitive data |
-| **A03** | Injection | SQLi (3 techniques), CMDi, SSTI, LDAP injection |
-| **A04** | Insecure Design | Rate limiting absence, logic flaw indicators |
-| **A05** | Security Misconfiguration | Default creds, exposed admin panels, debug mode, open CORS |
-| **A06** | Vulnerable Components | Version banner → CVE correlation |
-| **A07** | Auth & Session Failures | Brute force exposure, JWT `alg:none`, session fixation |
-| **A08** | Software Integrity Failures | Missing SRI on CDN assets |
-| **A09** | Logging & Monitoring Failures | Verbose error responses, stack traces |
-| **A10** | Server-Side Request Forgery | Internal service reach via URL params |
+| A01 — Broken Access Control | `access_control` | Directory traversal, exposición de paths admin, acceso a archivos sensibles |
+| A02 — Cryptographic Failures | `crypto` | Config TLS/SSL, redirect HTTP→HTTPS, cookies inseguras |
+| A03 — Injection | `injection` | SQLi por detección de errores en respuesta, reflected XSS |
+| A04 — Insecure Design | `insecure_design` | Misconfiguración de CORS, open redirects, path traversal en parámetros |
+| A05 — Security Misconfiguration | `misconfiguration` | Headers de seguridad ausentes, endpoints de debug expuestos, verbosidad de errores |
+| A06 — Vulnerable Components | `vulnerable_components` | Versiones de software desactualizadas en headers y comentarios HTML |
+| A07 — Auth Failures | `auth_failures` | Detección de formularios de login, política de lockout, credenciales por defecto |
+| A08 — Software/Data Integrity | `integrity_failures` | SRI ausente en recursos CDN, JWT `alg:none`, patrones de deserialización insegura |
+| A09 — Logging Failures | `logging_failures` | Archivos de log expuestos, endpoints de debug, interfaces de monitoreo |
+| A10 — SSRF | `ssrf` | SSRF vía parámetros URL, endpoints proxy, prueba contra metadata de nube (AWS/GCP/DO) |
 
----
+> Nota honesta: `webhunter checkers` lista estos 10 módulos en el momento de escribir esto — es la fuente de verdad más confiable, correlo si querés confirmar el estado actual.
 
-## Installation
+## Requisitos
+
+- **Python 3.11+** (declarado en `pyproject.toml`, probado localmente con 3.14)
+- `GEMINI_API_KEY` — opcional. Necesaria solo para el análisis con IA. Se consigue gratis en [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey). Sin ella, el scan corre normal y solo se omite esa sección.
+- `AUTHORIZED_SCOPE` — opcional. Lista separada por comas de IPs/CIDRs/hostnames adicionales autorizados para escanear, más allá del scope de laboratorio incluido por defecto.
+
+(Estas dos son las únicas variables de entorno que el código realmente lee — confirmado buscando `os.getenv`/`os.environ` en todo `webhunter/`.)
+
+## Instalación
+
+Probado en Windows con Git Bash / PowerShell:
 
 ```bash
-git clone https://github.com/jmsdev83/webhunter
+git clone https://github.com/jmsDev/webhunter
 cd webhunter
+
+python -m venv .venv
+
+# Activar el entorno virtual
+# PowerShell:
+.venv\Scripts\Activate.ps1
+# Git Bash:
+source .venv/Scripts/activate
+
+# Instalar el paquete
 pip install -e .
 
+# Opcional: dependencias de desarrollo (pytest, mypy, ruff)
+pip install -e ".[dev]"
+
+# Variables de entorno (opcional, solo si vas a usar análisis con IA)
 cp .env.example .env
-# Add GEMINI_API_KEY to .env
+# editar .env y agregar GEMINI_API_KEY
 ```
 
-### Requirements
+La instalación con `pip install -e .` se verificó limpia, sin conflictos de versiones.
 
-- Python 3.11+
-- Gemini API key: [aistudio.google.com](https://aistudio.google.com) (free tier, optional)
-
----
-
-## Usage
+## Uso
 
 ```bash
-# Full OWASP Top 10 scan with AI
-webhunter scan http://target.htb
+# Ver comandos y opciones
+webhunter --help
 
-# Target specific check categories
-webhunter scan http://target.htb --checks injection,auth,misconfig
+# Listar los checkers disponibles y a qué categoría OWASP corresponde cada uno
+webhunter checkers
 
-# Authenticated scan (pass session cookie)
-webhunter scan http://target.htb --cookie "session=abc123"
+# Scan completo con IA (requiere GEMINI_API_KEY en .env)
+webhunter scan http://10.10.11.21
 
-# Export HTML report
-webhunter scan http://target.htb --output report.html --format html
+# Scan rápido sin análisis de IA
+webhunter scan http://127.0.0.1 --no-ai
 
-# Fast mode — skip AI analysis
-webhunter scan http://target.htb --no-ai
+# Guardar resultados en JSON
+webhunter scan http://10.10.11.21 --no-ai --output resultado.json
 
-# List all available check modules
-webhunter checks
+# Escanear un target fuera del scope por defecto (requiere autorización escrita)
+webhunter scan https://midominio-autorizado.com --force-scope
 ```
 
----
+Flags reales de `webhunter scan` (`webhunter/cli/main.py`):
 
-## Architecture
+| Flag | Qué hace |
+|---|---|
+| `url` (posicional) | Target a escanear, ej. `http://10.10.11.21` |
+| `--force-scope` | Saltea la validación de scope. Solo con autorización escrita. |
+| `--no-ai` | Se salta el análisis con Gemini. |
+| `--output` / `-o` | Guarda el resultado completo en un JSON. |
+| `--report` / `-r` | Pensado para generar reporte HTML/PDF (Fase 3). **No verificado**: el código lo invoca pero `jinja2`/`weasyprint` no están declarados como dependencias del proyecto, así que puede fallar al usarlo tal cual está el repo hoy. |
 
-```
-webhunter scan <url>
-      │
-      ▼
-  TargetAnalyzer       ← fingerprint stack, crawl endpoints, map parameters
-      │
-      ▼
-  asyncio.gather()     ← all OWASP checkers run concurrently
-  ┌───┴──────────────────────────────────────────────────────┐
-  │  InjectionChecker   AuthChecker      MisconfigChecker    │
-  │  XSSChecker         SSRFChecker      ComponentChecker    │
-  │  CryptoChecker      IntegrityChecker LoggingChecker      │
-  └───┬──────────────────────────────────────────────────────┘
-      │
-      ▼
-  GeminiAnalyzer       ← CVSS scoring + exploit context + remediation
-      │
-      ▼
-  Rich terminal table + HTML/JSON report
-```
+Si el target no está en scope (no es HTB/THM/RFC1918/`.htb`/`.thm`/`.local`/localhost ni fue agregado en `AUTHORIZED_SCOPE`), el comando corta con un `SCOPE ERROR` claro y exit code `1` — no hace falta API key para llegar a ese punto.
 
----
-
-## Severity Classification
-
-| Level | CVSS Range | Example Finding |
-|---|---|---|
-| 🔴 **CRITICAL** | 9.0–10.0 | SQLi with DB extraction, RCE via SSTI |
-| 🟠 **HIGH** | 7.0–8.9 | Auth bypass, stored XSS, SSRF to internal |
-| 🟡 **MEDIUM** | 4.0–6.9 | Reflected XSS, CORS wildcard, missing CSP |
-| 🔵 **LOW** | 0.1–3.9 | Version disclosure, verbose errors |
-| ⚪ **INFO** | 0.0 | Tech stack fingerprint, open endpoints |
-
----
-
-## Project Structure
+## Estructura del proyecto
 
 ```
 webhunter/
-├── webhunter/
-│   ├── checkers/
-│   │   ├── base.py              # BaseChecker ABC
-│   │   ├── injection.py         # SQLi, CMDi, SSTI
-│   │   ├── auth.py              # Auth/session analysis
-│   │   ├── misconfig.py         # Security misconfiguration
-│   │   ├── xss.py               # XSS fuzzer
-│   │   ├── ssrf.py              # SSRF prober
-│   │   └── components.py        # Version → CVE
-│   ├── core/
-│   │   ├── crawler.py           # Target crawling + param discovery
-│   │   ├── orchestrator.py      # Async checker pipeline
-│   │   └── ai_analyzer.py       # Gemini integration
-│   ├── types/
-│   │   └── findings.py          # Vulnerability, ScanResult, Severity
-│   ├── report/
-│   │   ├── generator.py
-│   │   └── template.html
-│   └── cli/
-│       └── main.py
-└── pyproject.toml
+├── pyproject.toml
+├── .env.example
+├── CLAUDE.md
+├── README.md
+└── webhunter/
+    ├── cli/
+    │   └── main.py                   # Comandos Typer: scan, checkers
+    ├── core/
+    │   ├── target.py                 # Parseo de URL + scope gate
+    │   └── orchestrator.py           # Orquestador async + integración Gemini
+    ├── checkers/                     # 10 checkers, uno por categoría OWASP A01–A10
+    │   ├── base.py                   # BaseChecker (ABC), tolerante a fallos
+    │   ├── access_control.py
+    │   ├── auth_failures.py
+    │   ├── crypto.py
+    │   ├── injection.py
+    │   ├── insecure_design.py
+    │   ├── integrity_failures.py
+    │   ├── logging_failures.py
+    │   ├── misconfiguration.py
+    │   ├── ssrf.py
+    │   └── vulnerable_components.py
+    ├── report/
+    │   ├── generator.py              # HTML/PDF (dependencias no declaradas, ver Uso)
+    │   └── template.html
+    └── types/
+        └── findings.py               # Vulnerability, ScanResult, Severity, VulnCategory
 ```
 
----
+## Aviso legal
 
-## Environment Variables
-
-```env
-GEMINI_API_KEY=your-key-here      # Google AI Studio (free tier)
-```
+WebHunter está pensado exclusivamente para pentesting autorizado y fines educativos (labs propios, HackTheBox, TryHackMe, o targets con autorización escrita explícita). Escanear sistemas que no son tuyos y sobre los que no tenés autorización es ilegal en la mayoría de las jurisdicciones. El scope gate por defecto es una ayuda, no una garantía legal — la responsabilidad de usar esta herramienta dentro de la ley es de quien la ejecuta.
 
 ---
-
-## Portfolio
-
-| # | Category | Project | Status |
-|---|---|---|---|
-| P-01 | Offensive | ReconAI — Recon Orchestrator | ✅ |
-| P-02 | Offensive | **WebHunter** ← you are here | ✅ |
-| P-03 | Offensive | PhishSim — Red Team Phishing | ✅ |
-| D-01 | Defensive | SOC-Lite — AI SIEM | ✅ |
-| D-02 | Defensive | ThreatFeed — CTI Aggregator | ✅ |
-| D-03 | Defensive | HoneyGrid — SSH/HTTP Honeypot | ✅ |
-| F-01 | Forensics | DFIR-Auto — Forensic Triage | ✅ |
-| F-02 | Forensics | MalwareScope — Malware Analyzer | ✅ |
-| F-03 | Forensics | PCAPForge — Network Forensics | ✅ |
-
----
-
-> ⚠️ **Legal Notice** — Only scan applications you own or have explicit written authorization to test.
-
----
-
-<div align="center">
 
 Copyright © 2025 Desarrollado desde Las Breñas con 💜 por [@jmsDev](https://www.linkedin.com/in/jmsilva83) · All rights reserved
-
-</div>

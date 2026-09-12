@@ -1,5 +1,7 @@
 # WebHunter
 
+![banner](docs/banner.svg)
+
 Scanner de vulnerabilidades web basado en OWASP Top 10, con sugerencias de explotación asistidas por IA — proyecto **P-02** del portfolio de ciberseguridad de [@jmsDev](https://www.linkedin.com/in/jmsilva83).
 
 ## Qué hace

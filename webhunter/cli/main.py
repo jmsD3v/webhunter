@@ -40,7 +40,7 @@ def scan(
     ] = False,
     no_ai: Annotated[
         bool,
-        typer.Option("--no-ai", help="Skip Gemini AI analysis."),
+        typer.Option("--no-ai", help="Skip AI analysis."),
     ] = False,
     output: Annotated[
         str | None,
@@ -75,7 +75,7 @@ def scan(
         )
 
     console.print(f"  Target  : [bold]{target.base_url}[/bold]")
-    console.print(f"  AI      : {'disabled' if no_ai else 'enabled (Gemini)'}")
+    console.print(f"  AI      : {'disabled' if no_ai else 'enabled'}")
     console.print(f"  Checkers: {len(CHECKERS)} loaded\n")
 
     result = asyncio.run(run_scan(target, use_ai=not no_ai))

@@ -4,7 +4,7 @@ Scanner de vulnerabilidades web basado en OWASP Top 10, con sugerencias de explo
 
 ## Qué hace
 
-WebHunter lanza 10 checkers asíncronos contra una URL objetivo — uno por cada categoría del OWASP Top 10 2021 (A01 a A10) — haciendo peticiones HTTP reales con `httpx` contra el target, no análisis estático de código. Cada checker agrega sus hallazgos (`Vulnerability`) a un resultado común con severidad (CRITICAL/HIGH/MEDIUM/LOW/INFO), evidencia y remediación sugerida. Si se define `GEMINI_API_KEY`, el resultado del escaneo se envía a Google Gemini (`gemini-1.5-flash`) para generar una evaluación de riesgo en texto libre; sin la key, el escaneo corre igual y esa sección simplemente se omite. Antes de escanear, valida que el target esté en scope autorizado (HTB, THM, rangos RFC1918, `*.htb/.thm/.local`, localhost) y corta con un error claro si no lo está, salvo que se use `--force-scope`.
+WebHunter lanza 10 checkers asíncronos contra una URL objetivo — uno por cada categoría del OWASP Top 10 2021 (A01 a A10) — haciendo peticiones HTTP reales con `httpx` contra el target, no análisis estático de código. Cada checker agrega sus hallazgos (`Vulnerability`) a un resultado común con severidad (CRITICAL/HIGH/MEDIUM/LOW/INFO), evidencia y remediación sugerida. Si se define alguna de `ANTHROPIC_API_KEY`, `GEMINI_API_KEY` u `OPENAI_API_KEY` (`webhunter/core/ai_provider.py` detecta automáticamente cuál está seteada, con esa prioridad), el resultado del escaneo se envía al proveedor de IA correspondiente (Claude, Gemini `gemini-1.5-flash`, u OpenAI) para generar una evaluación de riesgo en texto libre; sin ninguna key, el escaneo corre igual y esa sección simplemente se omite. Antes de escanear, valida que el target esté en scope autorizado (HTB, THM, rangos RFC1918, `*.htb/.thm/.local`, localhost) y corta con un error claro si no lo está, salvo que se use `--force-scope`.
 
 ## Características
 
@@ -12,7 +12,7 @@ WebHunter lanza 10 checkers asíncronos contra una URL objetivo — uno por cada
 - **Checkers 100% asíncronos** (`asyncio.gather`) sobre `httpx.AsyncClient` — corren en paralelo contra el mismo target.
 - **Tolerante a fallos**: si un checker se cae (timeout, conexión rechazada, excepción), el orquestador lo captura y lo reporta como finding INFO en vez de tirar abajo todo el scan.
 - **Scope gate obligatorio** (`webhunter/core/target.py`): por defecto solo permite escanear rangos de laboratorio (HTB, THM, RFC1918, `.htb/.thm/.local`, localhost) o hosts agregados manualmente vía `AUTHORIZED_SCOPE`. `--force-scope` lo saltea, con advertencia en pantalla.
-- **Análisis con IA opcional** vía Gemini — no bloquea el escaneo si falta la API key.
+- **Análisis con IA opcional y configurable** — cualquiera de estas API keys (`ANTHROPIC_API_KEY` > `GEMINI_API_KEY` > `OPENAI_API_KEY`, en ese orden de prioridad si hay más de una seteada); no bloquea el escaneo si falta la API key.
 - **Salida a JSON** (`--output`) para integrarlo en otras herramientas o pipelines.
 - **Exit code útil**: devuelve `1` si hubo hallazgos CRITICAL o HIGH, pensado para CI/CD.
 
@@ -36,10 +36,10 @@ WebHunter lanza 10 checkers asíncronos contra una URL objetivo — uno por cada
 ## Requisitos
 
 - **Python 3.11+** (declarado en `pyproject.toml`, probado localmente con 3.14)
-- `GEMINI_API_KEY` — opcional. Necesaria solo para el análisis con IA. Se consigue gratis en [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey). Sin ella, el scan corre normal y solo se omite esa sección.
+- Una API key de IA — opcional, y configurable entre cualquiera de estas: `ANTHROPIC_API_KEY`, `GEMINI_API_KEY` u `OPENAI_API_KEY`. Necesaria solo para el análisis con IA. Si hay más de una seteada, `webhunter/core/ai_provider.py` usa la primera que encuentre en ese orden de prioridad exacto: Anthropic > Gemini > OpenAI. Gemini se consigue gratis en [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey). Sin ninguna key, el scan corre normal y solo se omite esa sección.
 - `AUTHORIZED_SCOPE` — opcional. Lista separada por comas de IPs/CIDRs/hostnames adicionales autorizados para escanear, más allá del scope de laboratorio incluido por defecto.
 
-(Estas dos son las únicas variables de entorno que el código realmente lee — confirmado buscando `os.getenv`/`os.environ` en todo `webhunter/`.)
+(Estas son las únicas variables de entorno que el código realmente lee — confirmado buscando `os.getenv`/`os.environ` en todo `webhunter/`.)
 
 ## Instalación
 
@@ -65,7 +65,7 @@ pip install -e ".[dev]"
 
 # Variables de entorno (opcional, solo si vas a usar análisis con IA)
 cp .env.example .env
-# editar .env y agregar GEMINI_API_KEY
+# editar .env y agregar UNA de: ANTHROPIC_API_KEY, GEMINI_API_KEY, OPENAI_API_KEY
 ```
 
 La instalación con `pip install -e .` se verificó limpia, sin conflictos de versiones.
@@ -79,7 +79,7 @@ webhunter --help
 # Listar los checkers disponibles y a qué categoría OWASP corresponde cada uno
 webhunter checkers
 
-# Scan completo con IA (requiere GEMINI_API_KEY en .env)
+# Scan completo con IA (requiere una API key de IA en .env)
 webhunter scan http://10.10.11.21
 
 # Scan rápido sin análisis de IA
@@ -98,7 +98,7 @@ Flags reales de `webhunter scan` (`webhunter/cli/main.py`):
 |---|---|
 | `url` (posicional) | Target a escanear, ej. `http://10.10.11.21` |
 | `--force-scope` | Saltea la validación de scope. Solo con autorización escrita. |
-| `--no-ai` | Se salta el análisis con Gemini. |
+| `--no-ai` | Se salta el análisis con IA. |
 | `--output` / `-o` | Guarda el resultado completo en un JSON. |
 | `--report` / `-r` | Pensado para generar reporte HTML/PDF (Fase 3). **No verificado**: el código lo invoca pero `jinja2`/`weasyprint` no están declarados como dependencias del proyecto, así que puede fallar al usarlo tal cual está el repo hoy. |
 
@@ -117,7 +117,8 @@ webhunter/
     │   └── main.py                   # Comandos Typer: scan, checkers
     ├── core/
     │   ├── target.py                 # Parseo de URL + scope gate
-    │   └── orchestrator.py           # Orquestador async + integración Gemini
+    │   ├── ai_provider.py            # Selección de proveedor de IA (Anthropic/Gemini/OpenAI)
+    │   └── orchestrator.py           # Orquestador async + análisis con IA
     ├── checkers/                     # 10 checkers, uno por categoría OWASP A01–A10
     │   ├── base.py                   # BaseChecker (ABC), tolerante a fallos
     │   ├── access_control.py

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -10,6 +9,7 @@ from rich.console import Console
 from rich.table import Table
 
 from webhunter.checkers.base import BaseChecker
+from webhunter.core.ai_provider import NoAIProviderError, get_completion
 from webhunter.core.target import TargetURL
 from webhunter.types.findings import ScanResult, Severity
 
@@ -40,17 +40,8 @@ CHECKERS: list[BaseChecker] = [
 ]
 
 
-async def _analyze_with_gemini(result: ScanResult) -> str | None:
-    api_key = os.getenv("GEMINI_API_KEY", "").strip()
-    if not api_key:
-        return None
-
+async def _analyze_with_ai(result: ScanResult) -> str | None:
     try:
-        import google.generativeai as genai  # type: ignore[import]
-
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
-
         vuln_summary = "\n".join(
             f"- [{v.severity.value.upper()}] {v.title} ({v.category.value}): {v.description}"
             for v in result.sorted_vulns[:20]
@@ -65,9 +56,10 @@ async def _analyze_with_gemini(result: ScanResult) -> str | None:
             f"overall risk level, most critical issues, and top remediation priorities."
         )
 
-        response = await asyncio.to_thread(model.generate_content, prompt)
-        return response.text
+        return await get_completion(prompt)
 
+    except NoAIProviderError:
+        return None
     except Exception as exc:
         console.print(f"[yellow]AI analysis skipped: {exc}[/yellow]")
         return None
@@ -92,7 +84,7 @@ async def run_scan(
 
     if use_ai:
         console.print("[dim]Requesting AI analysis...[/dim]")
-        result.ai_analysis = await _analyze_with_gemini(result)
+        result.ai_analysis = await _analyze_with_ai(result)
 
     result.completed_at = datetime.now(timezone.utc)
     return result

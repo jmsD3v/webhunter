@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import sys
+from datetime import date
 from pathlib import Path
 from typing import Annotated
 
@@ -24,7 +25,7 @@ app = typer.Typer(
 console = Console()
 
 _FOOTER = (
-    "Copyright (c) 2025 Desarrollado desde Las Brenas con amor por @jmsDev All rights reserved"
+    f"Copyright (c) {date.today().year} Desarrollado desde Las Brenas con amor por @jmsDev All rights reserved"
 )
 
 

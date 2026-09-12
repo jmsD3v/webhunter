@@ -152,6 +152,6 @@ def save_output(result: ScanResult, path: str) -> None:
 def _print_footer() -> None:
     console.print()
     console.print(
-        "[dim]Copyright (c) 2025 Desarrollado desde Las Brenas con amor "
+        f"[dim]Copyright (c) {datetime.now(timezone.utc).year} Desarrollado desde Las Brenas con amor "
         "por @jmsDev All rights reserved[/dim]"
     )

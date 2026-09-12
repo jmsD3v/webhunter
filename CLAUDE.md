@@ -252,7 +252,7 @@ find . -name "*.py" | grep -v __pycache__ | sort
 ## Footer obligatorio en todo output del proyecto
 
 ```
-Copyright © 2025 Desarrollado desde Las Breñas con 💜 por @jmsDev All rights reserved
+Copyright © {año actual, calculado dinámicamente — nunca hardcodear} Desarrollado desde Las Breñas con 💜 por @jmsDev All rights reserved
 ```
 
 `@jmsDev` → https://www.linkedin.com/in/jmsilva83

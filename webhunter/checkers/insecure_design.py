@@ -1,6 +1,8 @@
 """A04:2021 - Insecure Design: CORS misconfig, open redirects, path traversal in params."""
 from __future__ import annotations
 
+from urllib.parse import urlsplit
+
 import httpx
 
 from webhunter.checkers.base import BaseChecker
@@ -11,6 +13,21 @@ _TRAVERSAL_PARAMS = ["file", "path", "page", "include", "doc", "template", "fold
 _TRAVERSAL_PAYLOADS = ["../etc/passwd", "../../etc/passwd", "....//....//etc/passwd", "%2e%2e%2fetc%2fpasswd"]
 _OPEN_REDIRECT_PARAMS = ["redirect", "url", "next", "return", "returnUrl", "redirect_uri", "goto", "dest", "destination", "target"]
 _REDIRECT_PAYLOAD = "https://evil.com"
+_REDIRECT_HOST = "evil.com"
+_CORS_PROBE_HOST = "evil.attacker.com"
+
+
+def _host_is(url: str, host: str) -> bool:
+    """True si la URL apunta exactamente a ese host (o a un subdominio).
+
+    Compara el host ya parseado, no un substring: "https://sitio.com/?next=evil.com"
+    no es un redirect a evil.com, pero "//evil.com/x" sí.
+    """
+    try:
+        hostname = urlsplit(url.strip()).hostname or ""
+    except ValueError:
+        return False
+    return hostname == host or hostname.endswith("." + host)
 _TRAVERSAL_SIGS = ["root:x:", "daemon:", "bin/bash", "bin/sh", "[extensions]", "for 16-bit app support"]
 
 
@@ -44,7 +61,7 @@ class InsecureDesignChecker(BaseChecker):
                     evidence=f"ACAO: {acao}",
                     remediation="Restrict CORS to specific trusted origins. Never use wildcard on authenticated endpoints.",
                 ))
-            elif "evil.attacker.com" in acao:
+            elif _host_is(acao, _CORS_PROBE_HOST):
                 sev = Severity.HIGH if acac.lower() == "true" else Severity.MEDIUM
                 result.add(Vulnerability(
                     checker=self.name,
@@ -64,7 +81,7 @@ class InsecureDesignChecker(BaseChecker):
             try:
                 resp = await client.get(url)
                 location = resp.headers.get("Location", "")
-                if resp.status_code in (301, 302, 303, 307, 308) and "evil.com" in location:
+                if resp.status_code in (301, 302, 303, 307, 308) and _host_is(location, _REDIRECT_HOST):
                     result.add(Vulnerability(
                         checker=self.name,
                         category=self.category,
